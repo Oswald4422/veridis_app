@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../services/auth_service.dart';
+import '../services/esp32_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/responsive_layout.dart';
@@ -15,6 +17,19 @@ class QrScanScreen extends StatefulWidget {
 class _QrScanScreenState extends State<QrScanScreen> {
   bool _scanned = false;
   final MobileScannerController _controller = MobileScannerController();
+  String _firstName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadName();
+  }
+
+  Future<void> _loadName() async {
+    final data = await AuthService().getUserDoc();
+    final full = data?['name'] as String? ?? '';
+    if (mounted) setState(() => _firstName = full.split(' ').first);
+  }
 
   @override
   void dispose() {
@@ -33,6 +48,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
       if (token == null || token.isEmpty) return false;
       // TODO: validate token against Firebase in production
       SessionService().startSession(machineId);
+      final uid = AuthService().currentUser?.uid ?? '';
+      Esp32Service.startSession(name: _firstName, userId: uid).catchError((_) {});
       return true;
     } catch (_) {
       return false;

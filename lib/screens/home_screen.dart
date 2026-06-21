@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'statistics_screen.dart';
 import 'leaderboard_screen.dart';
 import 'profile_screen.dart';
 import 'qr_scan_screen.dart';
 import 'history_screen.dart';
 import 'wallet_screen.dart';
+import 'active_session_screen.dart';
 import '../services/auth_service.dart';
 import '../services/session_service.dart';
 import '../services/wallet_service.dart';
+import '../services/esp32_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/responsive_layout.dart';
 
@@ -22,11 +25,46 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String _firstName = '';
+  StreamSubscription? _linkSub;
+  final _appLinks = AppLinks();
 
   @override
   void initState() {
     super.initState();
     _loadName();
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    try {
+      final uri = await _appLinks.getInitialLink();
+      if (uri != null && uri.toString().contains('veridis://connect')) {
+        _handleDeepLink();
+      }
+    } catch (_) {}
+
+    _linkSub = _appLinks.uriLinkStream.listen((uri) {
+      if (uri.toString().contains('veridis://connect')) {
+        _handleDeepLink();
+      }
+    }, onError: (_) {});
+  }
+
+  void _handleDeepLink() {
+    if (!mounted) return;
+    SessionService().startSession('esp32_machine');
+    final uid = AuthService().currentUser?.uid ?? '';
+    Esp32Service.startSession(name: _firstName, userId: uid).catchError((_) {});
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ActiveSessionScreen()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadName() async {

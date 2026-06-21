@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:math';
 
 import '../models/recycling_session.dart'; // also exports BottleItem
+import '../services/auth_service.dart';
+import '../services/esp32_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/responsive_layout.dart';
@@ -77,7 +79,13 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> {
   }
 
   void _endSession() {
+    final session = SessionService().activeSession;
+    final bottleCount = session?.bottleCount ?? 0;
     SessionService().endSession();
+    final uid = AuthService().currentUser?.uid ?? '';
+    Esp32Service.endSession(userId: uid, bottles: bottleCount).catchError((e) {
+      debugPrint('[ESP32] endSession failed: $e');
+    });
     setState(() => _step = _BottleStep.sessionSummary);
   }
 
